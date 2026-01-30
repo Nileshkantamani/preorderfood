@@ -15,11 +15,6 @@ const CustomerHomePage = () => {
   const [sort, setSort] = useState('name-asc')
 
   useEffect(() => {
-    const role = localStorage.getItem('auth_role')
-    if (role !== 'customer') {
-      navigate('/login')
-      return
-    }
     const fetchRestaurants = async () => {
       try {
         const { data } = await api.get('/restaurants')
@@ -31,7 +26,7 @@ const CustomerHomePage = () => {
       }
     }
     fetchRestaurants()
-  }, [navigate])
+  }, [])
 
   const filtered = useMemo(() => {
     let list = [...restaurants]
@@ -131,7 +126,14 @@ const CustomerHomePage = () => {
                 </p>
               </div>
               <button
-                onClick={() => navigate(`/customer/restaurant/${r.id}`)}
+                onClick={() => {
+                  const role = localStorage.getItem('auth_role')
+                  if (role === 'customer') {
+                    navigate(`/customer/restaurant/${r.id}`)
+                  } else {
+                    navigate('/login')
+                  }
+                }}
                 className="mt-auto px-4 py-2 text-sm font-medium rounded-md bg-primary text-white hover:bg-primary/90"
               >
                 View Menu

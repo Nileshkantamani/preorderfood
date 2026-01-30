@@ -7,6 +7,7 @@ import Button from '../components/Button'
 import Badge from '../components/Badge'
 import Card from '../components/Card'
 import Modal from '../components/Modal'
+import StarRating from '../components/StarRating'
 
 const statusVariant = (status) => {
   switch (status) {
@@ -32,6 +33,7 @@ const RestaurantOrderPage = () => {
   const [rejecting, setRejecting] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [feedback, setFeedback] = useState(null)
 
   useEffect(() => {
     const role = localStorage.getItem('auth_role')
@@ -55,6 +57,17 @@ const RestaurantOrderPage = () => {
 
         const { data } = await api.get(`/restaurant/order/${id}`)
         setOrder(data)
+
+        // Try to load feedback for this order (if customer has submitted it)
+        try {
+          const fbRes = await api.get(`/restaurant/orders/${id}/feedback`)
+          setFeedback(fbRes.data)
+        } catch (err) {
+          if (err.response?.status !== 404) {
+            // 404 just means no feedback yet; other errors we surface
+            setError('Failed to load feedback for this order.')
+          }
+        }
       } catch (err) {
         if (err.response?.status === 404) {
           setError('Order not found.')
@@ -230,6 +243,23 @@ const RestaurantOrderPage = () => {
             Payment Status: {order.payment_status}
           </p>
         </div>
+
+        {feedback && (
+          <div className="border-t border-border pt-3 mt-3 mb-3">
+            <p className="text-xs font-semibold text-textPrimary mb-2">Customer Feedback</p>
+            <div className="space-y-1 text-xs text-textSecondary">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-textPrimary">Restaurant:</span>
+                <StarRating value={feedback.restaurant_rating} readOnly size={14} />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-textPrimary">Food:</span>
+                <StarRating value={feedback.food_rating} readOnly size={14} />
+              </div>
+              {feedback.comment && <p className="mt-1">“{feedback.comment}”</p>}
+            </div>
+          </div>
+        )}
 
         {/* Status-specific message */}
         <div className="text-[11px] text-textSecondary mb-4">

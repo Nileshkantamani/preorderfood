@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -25,7 +25,7 @@ router = APIRouter(tags=["customer"])
 def list_restaurants(db: Session = Depends(get_db)):
     restaurants = (
         db.query(Restaurant)
-        .filter(Restaurant.status == RestaurantStatus.APPROVED)
+        .filter(Restaurant.status == RestaurantStatus.APPROVED, Restaurant.is_visible.is_(True))
         .order_by(Restaurant.restaurant_name.asc())
         .all()
     )
@@ -34,7 +34,11 @@ def list_restaurants(db: Session = Depends(get_db)):
 
 @router.get("/restaurants/{restaurant_id}")
 def get_restaurant(restaurant_id: int, db: Session = Depends(get_db)):
-    restaurant = db.query(Restaurant).filter(Restaurant.id == restaurant_id, Restaurant.status == RestaurantStatus.APPROVED).first()
+    restaurant = db.query(Restaurant).filter(
+        Restaurant.id == restaurant_id,
+        Restaurant.status == RestaurantStatus.APPROVED,
+        Restaurant.is_visible.is_(True),
+    ).first()
     if not restaurant:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Restaurant not found")
     return restaurant
@@ -61,8 +65,13 @@ def create_order(
 
     # Validate arrival time: future and roughly within opening/closing hours (basic check)
     now = datetime.utcnow()
-    if payload.arrival_time <= now:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Arrival time must be in the future")
+    # Require at least 20 minutes lead time
+    min_allowed = now + timedelta(minutes=20)
+    if payload.arrival_time < min_allowed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Arrival time must be at least 20 minutes from now",
+        )
 
     # Basic hour-only comparison assuming opening_time/closing_time are HH:MM
     try:
@@ -75,7 +84,7 @@ def create_order(
         )):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Arrival time must be within restaurant operating hours",
+                detail="Restaurant is closed at that time.",
             )
     except ValueError:
         # If parsing fails, skip hours validation

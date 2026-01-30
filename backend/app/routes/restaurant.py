@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import Order, Restaurant, RestaurantStatus
+from ..models import Order, Restaurant, RestaurantStatus, Feedback
 from ..schemas import (
     RejectOrderRequest,
     RestaurantOrderResponse,
@@ -10,6 +10,7 @@ from ..schemas import (
     RestaurantSingleOrderResponse,
     RestaurantProfileUpdate,
     RestaurantMenuUpdate,
+    FeedbackResponse,
 )
 from ..utils.auth import get_current_restaurant
 
@@ -86,6 +87,12 @@ def get_restaurant_profile(db: Session = Depends(get_db), restaurant_user=Depend
     acceptance_rate = (accepted_orders / decision_total * 100.0) if decision_total > 0 else 0.0
     member_since = restaurant.user.created_at
 
+    # Ensure menu is always a dict with at least an empty categories list
+    raw_menu = restaurant.menu or {}
+    if not isinstance(raw_menu, dict):
+        raw_menu = {}
+    safe_menu = {"categories": raw_menu.get("categories", [])}
+
     return RestaurantProfileResponse(
         restaurant_name=restaurant.restaurant_name,
         business_phone=restaurant.business_phone,
@@ -93,6 +100,9 @@ def get_restaurant_profile(db: Session = Depends(get_db), restaurant_user=Depend
         city=restaurant.city,
         state=restaurant.state,
         pincode=restaurant.pincode,
+        opening_time=restaurant.opening_time,
+        closing_time=restaurant.closing_time,
+        is_visible=restaurant.is_visible,
         revenue=revenue,
         orders_count=len(orders),
         status=restaurant.status,
@@ -103,7 +113,7 @@ def get_restaurant_profile(db: Session = Depends(get_db), restaurant_user=Depend
         acceptance_rate=acceptance_rate,
         average_order_value=average_order_value,
         member_since=member_since,
-        menu=restaurant.menu,
+        menu=safe_menu,
     )
 
 
@@ -122,6 +132,7 @@ def update_restaurant_profile(
     restaurant.pincode = payload.pincode
     restaurant.opening_time = payload.opening_time
     restaurant.closing_time = payload.closing_time
+    restaurant.is_visible = payload.is_visible
 
     db.commit()
     db.refresh(restaurant)
@@ -167,4 +178,38 @@ def get_restaurant_order(order_id: int, db: Session = Depends(get_db), restauran
         total=order.total_amount,
         status=order.status,
         payment_status=order.payment_status,
+    )
+
+
+@router.get("/orders/{order_id}/feedback", response_model=FeedbackResponse)
+def get_order_feedback_for_restaurant(
+    order_id: int,
+    db: Session = Depends(get_db),
+    restaurant_user=Depends(get_current_restaurant),
+):
+    """Allow a restaurant to view feedback left for one of its orders.
+
+    The restaurant must own the order. If no feedback exists, return 404.
+    """
+
+    restaurant: Restaurant = restaurant_user.restaurant
+    order = (
+        db.query(Order)
+        .filter(Order.id == order_id, Order.restaurant_id == restaurant.id)
+        .first()
+    )
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+
+    fb = db.query(Feedback).filter(Feedback.order_id == order.id).first()
+    if not fb:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Feedback not found")
+
+    return FeedbackResponse(
+        order_id=fb.order_id,
+        restaurant_id=fb.restaurant_id,
+        restaurant_rating=fb.restaurant_rating,
+        food_rating=fb.food_rating,
+        comment=fb.comment,
+        created_at=fb.created_at,
     )

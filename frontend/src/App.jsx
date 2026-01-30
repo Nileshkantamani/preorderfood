@@ -5,8 +5,10 @@ import RegisterPage from './pages/RegisterPage'
 import CustomerRegisterPage from './pages/CustomerRegisterPage'
 import RestaurantRegisterPage from './pages/RestaurantRegisterPage'
 import LoginPage from './pages/LoginPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import AdminLoginPage from './pages/AdminLoginPage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
+import AdminUserDetailPage from './pages/AdminUserDetailPage'
 import AdminRestaurantPage from './pages/AdminRestaurantPage'
 import CustomerHomePage from './pages/CustomerHomePage'
 import CustomerRestaurantPage from './pages/CustomerRestaurantPage'
@@ -30,10 +32,12 @@ const App = () => {
         <Route path="/register/customer" element={<CustomerRegisterPage />} />
         <Route path="/register/restaurant" element={<RestaurantRegisterPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
-        <Route path="/admin/restaurant/:id" element={<AdminRestaurantPage />} />
+        <Route path="/admin/restaurant/:restaurantId" element={<AdminRestaurantPage />} />
+        <Route path="/admin/users/:userId" element={<AdminUserDetailPage />} />
 
         <Route path="/customer/home" element={<CustomerHomePage />} />
         <Route path="/customer/restaurant/:id" element={<CustomerRestaurantPage />} />

@@ -7,6 +7,7 @@ const LoginPage = () => {
   const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value })
@@ -49,12 +50,14 @@ const LoginPage = () => {
       // If backend ever returns an explicit not-approved error for restaurants
       // (e.g. 403), surface a clear message and send them to the pending page.
       if (
-        status === 403 ||
-        detail?.code === 'RESTAURANT_NOT_APPROVED' ||
-        detail?.message?.toLowerCase().includes('not approved')
+        status === 403 &&
+        (detail?.code === 'RESTAURANT_NOT_APPROVED' ||
+          detail?.message?.toLowerCase().includes('not approved'))
       ) {
         setError('Your restaurant is still under admin review.')
         navigate('/restaurant/pending')
+      } else if (status === 403 && detail?.code === 'EMAIL_NOT_VERIFIED') {
+        setError('Please verify your email using the OTP sent to your inbox.')
       } else {
         setError('Invalid email or password.')
       }
@@ -82,13 +85,29 @@ const LoginPage = () => {
           </div>
           <div>
             <label className="block text-xs font-medium text-textSecondary mb-1">Password</label>
-            <input
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
-              className="w-full px-3 py-2 rounded-md border border-border bg-surface text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-            />
+            <div className="flex items-center gap-2">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                name="password"
+                value={form.password}
+                onChange={handleChange}
+                className="flex-1 px-3 py-2 rounded-md border border-border bg-surface text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="px-2 py-1 text-[11px] text-textSecondary border border-border rounded-md"
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/forgot-password')}
+              className="mt-1 text-xs text-primary hover:underline"
+            >
+              Forgot Password?
+            </button>
           </div>
           {error && <p className="text-xs text-red-500">{error}</p>}
           <button

@@ -7,7 +7,7 @@ const emptyCategory = () => ({ name: '', items: [{ name: '', price: '' }] })
 
 const RestaurantRegisterPage = () => {
   const navigate = useNavigate()
-  const [step, setStep] = useState(1)
+  const [step, setStep] = useState(1) // 1 = details, 2 = menu, 3 = OTP verification
   const [details, setDetails] = useState({
     restaurant_name: '',
     phone: '',
@@ -23,9 +23,56 @@ const RestaurantRegisterPage = () => {
   const [categories, setCategories] = useState([emptyCategory()])
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
+  const [otp, setOtp] = useState('')
+  const [otpError, setOtpError] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleDetailChange = (e) => {
     setDetails({ ...details, [e.target.name]: e.target.value })
+  }
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault()
+    setSubmitting(true)
+    setOtpError('')
+    try {
+      await api.post('/auth/verify-email', {
+        email: details.email,
+        code: otp,
+      })
+      navigate('/restaurant/pending', { state: { justRegistered: true } })
+    } catch (err) {
+      const detail = err.response?.data?.detail
+      const code = detail?.code
+      if (code === 'OTP_EXPIRED') {
+        setOtpError('Code expired. Please request a new one.')
+      } else if (code === 'OTP_INCORRECT') {
+        setOtpError('Incorrect code. Please try again.')
+      } else if (code === 'OTP_ATTEMPT_LIMIT') {
+        setOtpError('Too many incorrect attempts. Please request a new code.')
+      } else {
+        setOtpError(detail?.message || 'Could not verify code.')
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleResendOtp = async () => {
+    setSubmitting(true)
+    setOtpError('')
+    try {
+      await api.post('/auth/resend-verification', { email: details.email })
+    } catch (err) {
+      const detail = err.response?.data?.detail
+      if (detail?.code === 'OTP_RESEND_LIMIT') {
+        setOtpError('Resend limit reached. Please try again later.')
+      } else {
+        setOtpError(detail?.message || 'Could not resend code.')
+      }
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleCategoryName = (index, value) => {
@@ -116,13 +163,14 @@ const RestaurantRegisterPage = () => {
         ...details,
         menu,
       })
-      // Backend always creates restaurant with status=PENDING. We don't
-      // auto-login here; instead we redirect to the pending page.
-      if (data?.status === 'PENDING') {
-        navigate('/restaurant/pending', { state: { justRegistered: true } })
+      // Move to OTP verification step. Restaurant will still need admin approval
+      // after email verification.
+      if (data?.email) {
+        setStep(3)
+        setOtp('')
+        setOtpError('')
       } else {
-        // Fallback: if API shape ever changes, still send them to pending.
-        navigate('/restaurant/pending')
+        navigate('/restaurant/pending', { state: { justRegistered: true } })
       }
     } catch (err) {
       const detail = err.response?.data?.detail
@@ -136,7 +184,11 @@ const RestaurantRegisterPage = () => {
     <div className="flex justify-center py-10 px-4">
       <div className="w-full max-w-3xl bg-surface border border-border rounded-xl p-8 shadow-sm">
         <h2 className="text-2xl font-bold text-textPrimary mb-2">Register Your Restaurant</h2>
-        <p className="text-sm text-textSecondary mb-6">Provide your details and build your menu.</p>
+        <p className="text-sm text-textSecondary mb-6">
+          {step === 3
+            ? 'Enter the OTP sent to your email to verify your restaurant account.'
+            : 'Provide your details and build your menu.'}
+        </p>
 
         {step === 1 && (
           <div className="space-y-4">
@@ -241,13 +293,22 @@ const RestaurantRegisterPage = () => {
               </div>
               <div>
                 <label className="block text-xs text-textSecondary mb-1">Password</label>
-                <input
-                  type="password"
-                  name="password"
-                  value={details.password}
-                  onChange={handleDetailChange}
-                  className="w-full px-3 py-2 rounded-md border border-border text-sm focus:ring-1 focus:ring-primary"
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    value={details.password}
+                    onChange={handleDetailChange}
+                    className="flex-1 px-3 py-2 rounded-md border border-border text-sm focus:ring-1 focus:ring-primary"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="px-2 py-1 text-[11px] text-textSecondary border border-border rounded-md"
+                  >
+                    {showPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
                 {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password}</p>}
               </div>
             </div>
@@ -263,6 +324,47 @@ const RestaurantRegisterPage = () => {
               </button>
             </div>
           </div>
+        )}
+
+        {step === 3 && (
+          <form onSubmit={handleVerifyOtp} className="space-y-4 max-w-md">
+            <div>
+              <label className="block text-xs text-textSecondary mb-1">Email</label>
+              <input
+                type="email"
+                value={details.email}
+                disabled
+                className="w-full px-3 py-2 rounded-md border border-border text-sm text-textSecondary bg-surface"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-textSecondary mb-1">OTP Code</label>
+              <input
+                type="text"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                className="w-full px-3 py-2 rounded-md border border-border text-sm bg-surface focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              {otpError && <p className="text-xs text-red-500 mt-1">{otpError}</p>}
+            </div>
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={handleResendOtp}
+                disabled={submitting}
+                className="text-xs text-primary hover:underline disabled:opacity-60"
+              >
+                Resend code
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primary/90 disabled:opacity-60"
+              >
+                {submitting ? 'Verifying...' : 'Verify Email'}
+              </button>
+            </div>
+          </form>
         )}
 
         {step === 2 && (

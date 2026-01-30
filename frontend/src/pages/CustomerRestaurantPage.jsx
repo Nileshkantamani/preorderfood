@@ -13,17 +13,22 @@ const CustomerRestaurantPage = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [arrivalTime, setArrivalTime] = useState('')
+  const [minArrivalTime, setMinArrivalTime] = useState('')
+
   const [people, setPeople] = useState(2)
   const [selected, setSelected] = useState({}) // key: item name, value: quantity
   const [placing, setPlacing] = useState(false)
   const [ratings, setRatings] = useState(null)
 
   useEffect(() => {
-    const role = localStorage.getItem('auth_role')
-    if (role !== 'customer') {
-      navigate('/login')
-      return
+    const computeDefaultArrivalTime = () => {
+      const d = new Date()
+      d.setMinutes(d.getMinutes() + 20)
+      d.setSeconds(0, 0)
+      const pad = (n) => String(n).padStart(2, '0')
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
     }
+
     const fetchData = async () => {
       try {
         const [restRes, menuRes, ratingsRes] = await Promise.all([
@@ -34,12 +39,23 @@ const CustomerRestaurantPage = () => {
         setRestaurant(restRes.data)
         setMenu(menuRes.data)
         setRatings(ratingsRes.data)
+        const defaultArrival = computeDefaultArrivalTime()
+        setMinArrivalTime(defaultArrival)
+        setArrivalTime((prev) => prev || defaultArrival)
+
       } catch {
         setError('Failed to load restaurant or menu.')
       } finally {
         setLoading(false)
       }
     }
+    const role = localStorage.getItem('auth_role')
+    if (role !== 'customer') {
+      setError('Please login as a customer to place an order.')
+      setLoading(false)
+      return
+    }
+
     fetchData()
   }, [id, navigate])
 
@@ -56,7 +72,11 @@ const CustomerRestaurantPage = () => {
   }
 
   const handleQuantityChange = (itemName, qty) => {
-    setSelected((prev) => ({ ...prev, [itemName]: qty }))
+    const value = Number(qty)
+    if (!Number.isFinite(value) || value <= 0) {
+      return
+    }
+    setSelected((prev) => ({ ...prev, [itemName]: value }))
   }
 
   const itemsList = useMemo(() => {
@@ -94,6 +114,14 @@ const CustomerRestaurantPage = () => {
       setError('Please select an arrival time.')
       return false
     }
+    // Enforce at least 20 minutes from now on the client side
+    const now = new Date()
+    const selected = new Date(arrivalTime)
+    if (selected.getTime() - now.getTime() < 20 * 60 * 1000) {
+      setError('Atleast 20 minutes difference in time should be there from now')
+      return false
+    }
+
     if (cartItems.length === 0) {
       setError('Please select at least one menu item.')
       return false
@@ -137,7 +165,16 @@ const CustomerRestaurantPage = () => {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
         <Toast message={error || 'Restaurant not found.'} onClose={() => setError('')} />
-        <p className="text-sm text-red-500">Restaurant not found.</p>
+        <p className="text-sm text-red-500">{error || 'Restaurant not found.'}</p>
+        {error && (
+          <button
+            type="button"
+            onClick={() => navigate('/login')}
+            className="mt-4 px-4 py-2 text-sm font-medium rounded-md bg-primary text-white hover:bg-primary/90"
+          >
+            Go to Login
+          </button>
+        )}
       </div>
     )
   }
@@ -172,6 +209,7 @@ const CustomerRestaurantPage = () => {
               type="datetime-local"
               value={arrivalTime}
               onChange={(e) => setArrivalTime(e.target.value)}
+              min={minArrivalTime || undefined}
               className="w-full px-3 py-2 text-sm border border-border rounded-md bg-surface focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
@@ -219,23 +257,46 @@ const CustomerRestaurantPage = () => {
                             <span className="text-xs text-textSecondary">
                               ₹{item.price}
                             </span>
-                            <select
-                              disabled={!checked}
-                              value={selected[item.name] || 1}
-                              onChange={(e) =>
-                                handleQuantityChange(
-                                  item.name,
-                                  Number(e.target.value)
-                                )
-                              }
-                              className="px-2 py-1 text-xs border border-border rounded-md bg-surface disabled:opacity-50"
-                            >
-                              {Array.from({ length: 10 }).map((_, i) => (
-                                <option key={i + 1} value={i + 1}>
-                                  {i + 1}
-                                </option>
-                              ))}
-                            </select>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                disabled={!checked}
+                                onClick={() =>
+                                  checked &&
+                                  handleQuantityChange(
+                                    item.name,
+                                    (selected[item.name] || 1) - 1
+                                  )
+                                }
+                                className="px-2 py-1 text-xs border border-border rounded-md bg-surface disabled:opacity-40"
+                              >
+                                -
+                              </button>
+                              <input
+                                type="number"
+                                min={1}
+                                disabled={!checked}
+                                value={selected[item.name] || 1}
+                                onChange={(e) =>
+                                  handleQuantityChange(item.name, e.target.value)
+                                }
+                                className="w-14 px-2 py-1 text-xs border border-border rounded-md bg-surface disabled:opacity-50 text-center"
+                              />
+                              <button
+                                type="button"
+                                disabled={!checked}
+                                onClick={() =>
+                                  checked &&
+                                  handleQuantityChange(
+                                    item.name,
+                                    (selected[item.name] || 1) + 1
+                                  )
+                                }
+                                className="px-2 py-1 text-xs border border-border rounded-md bg-surface disabled:opacity-40"
+                              >
+                                +
+                              </button>
+                            </div>
                           </div>
                         </div>
                       )

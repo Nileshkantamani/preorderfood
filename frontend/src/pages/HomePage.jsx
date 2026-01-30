@@ -20,19 +20,14 @@ const features = [
 
 const HomePage = () => {
   const navigate = useNavigate()
-  const token = localStorage.getItem('auth_token')
-  const role = localStorage.getItem('auth_role')
 
   const handlePrimary = () => {
     navigate('/register')
   }
 
   const handleSecondary = () => {
-    if (token && role === 'customer') {
-      navigate('/customer/home')
-    } else {
-      navigate('/login')
-    }
+    // Let anyone browse the list of restaurants; login is required only when placing an order
+    navigate('/customer/home')
   }
 
   return (

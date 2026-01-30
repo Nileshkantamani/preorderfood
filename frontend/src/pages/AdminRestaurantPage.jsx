@@ -3,13 +3,15 @@ import { useNavigate, useParams } from 'react-router-dom'
 import api from '../utils/api'
 
 const AdminRestaurantPage = () => {
-  const { id } = useParams()
+  const { restaurantId } = useParams()
   const navigate = useNavigate()
   const [restaurant, setRestaurant] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [rejectReason, setRejectReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [menu, setMenu] = useState({ categories: [] })
+  const [savingMenu, setSavingMenu] = useState(false)
 
   useEffect(() => {
     const role = localStorage.getItem('auth_role')
@@ -19,8 +21,9 @@ const AdminRestaurantPage = () => {
     }
     const fetchDetail = async () => {
       try {
-        const { data } = await api.get(`/admin/restaurants/${id}`)
+        const { data } = await api.get(`/admin/restaurants/${restaurantId}`)
         setRestaurant(data)
+        setMenu(data.menu || { categories: [] })
       } catch (err) {
         setError('Failed to load restaurant details.')
       } finally {
@@ -28,18 +31,90 @@ const AdminRestaurantPage = () => {
       }
     }
     fetchDetail()
-  }, [id, navigate])
+  }, [restaurantId, navigate])
 
   const handleApprove = async () => {
     setSubmitting(true)
     try {
-      await api.post(`/admin/approve/${id}`)
+      await api.post(`/admin/approve/${restaurantId}`)
       navigate('/admin/dashboard')
     } catch (err) {
       setError('Failed to approve restaurant.')
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleSaveMenu = async () => {
+    setSavingMenu(true)
+    setError('')
+    try {
+      const { data } = await api.put(`/admin/restaurants/${restaurantId}/menu`, { menu })
+      setRestaurant(data)
+      setMenu(data.menu || { categories: [] })
+    } catch (err) {
+      setError('Failed to save menu.')
+    } finally {
+      setSavingMenu(false)
+    }
+  }
+
+  const addCategory = () => {
+    setMenu((prev) => ({
+      categories: [...(prev.categories || []), { name: '', items: [] }],
+    }))
+  }
+
+  const updateCategoryName = (index, value) => {
+    setMenu((prev) => {
+      const categories = [...(prev.categories || [])]
+      categories[index] = { ...categories[index], name: value }
+      return { ...prev, categories }
+    })
+  }
+
+  const deleteCategory = (index) => {
+    setMenu((prev) => {
+      const categories = [...(prev.categories || [])]
+      categories.splice(index, 1)
+      return { ...prev, categories }
+    })
+  }
+
+  const addItem = (catIndex) => {
+    setMenu((prev) => {
+      const categories = [...(prev.categories || [])]
+      const cat = categories[catIndex]
+      const items = [...(cat.items || []), { name: '', price: 0 }]
+      categories[catIndex] = { ...cat, items }
+      return { ...prev, categories }
+    })
+  }
+
+  const updateItem = (catIndex, itemIndex, field, value) => {
+    setMenu((prev) => {
+      const categories = [...(prev.categories || [])]
+      const cat = categories[catIndex]
+      const items = [...(cat.items || [])]
+      const item = {
+        ...items[itemIndex],
+        [field]: field === 'price' ? Number(value) || 0 : value,
+      }
+      items[itemIndex] = item
+      categories[catIndex] = { ...cat, items }
+      return { ...prev, categories }
+    })
+  }
+
+  const deleteItem = (catIndex, itemIndex) => {
+    setMenu((prev) => {
+      const categories = [...(prev.categories || [])]
+      const cat = categories[catIndex]
+      const items = [...(cat.items || [])]
+      items.splice(itemIndex, 1)
+      categories[catIndex] = { ...cat, items }
+      return { ...prev, categories }
+    })
   }
 
   const handleReject = async () => {
@@ -49,7 +124,7 @@ const AdminRestaurantPage = () => {
     }
     setSubmitting(true)
     try {
-      await api.post(`/admin/reject/${id}`, { reason: rejectReason })
+      await api.post(`/admin/reject/${restaurantId}`, { reason: rejectReason })
       navigate('/admin/dashboard')
     } catch (err) {
       setError('Failed to reject restaurant.')
@@ -74,7 +149,7 @@ const AdminRestaurantPage = () => {
     )
   }
 
-  const { restaurant_name, business_phone, address, city, state, pincode, opening_time, closing_time, menu, status } =
+  const { restaurant_name, business_phone, address, city, state, pincode, opening_time, closing_time, status } =
     restaurant
 
   return (
@@ -100,25 +175,89 @@ const AdminRestaurantPage = () => {
 
       <div className="border border-border rounded-md bg-surface p-4">
         <h2 className="text-sm font-semibold text-textPrimary mb-2">Menu</h2>
-        {menu?.categories?.length ? (
+        <button
+          type="button"
+          onClick={addCategory}
+          className="mb-3 px-3 py-1 rounded-md border border-border text-[11px] text-textSecondary hover:bg-slate-50"
+        >
+          + Add Category
+        </button>
+
+        {(menu.categories || []).length === 0 ? (
+          <p className="text-xs text-textSecondary">No categories yet. Add one to start building the menu.</p>
+        ) : (
           <div className="space-y-3">
-            {menu.categories.map((cat) => (
-              <div key={cat.name}>
-                <p className="text-sm font-medium text-textPrimary mb-1">{cat.name}</p>
-                <ul className="text-xs text-textSecondary space-y-0.5">
-                  {cat.items.map((item) => (
-                    <li key={item.name} className="flex justify-between">
-                      <span>{item.name}</span>
-                      <span>₹{item.price}</span>
-                    </li>
+            {(menu.categories || []).map((cat, catIdx) => (
+              <div key={catIdx} className="border border-border rounded-md p-3">
+                <div className="flex justify-between items-center mb-2">
+                  <input
+                    value={cat.name}
+                    onChange={(e) => updateCategoryName(catIdx, e.target.value)}
+                    placeholder="Category name"
+                    className="flex-1 border border-border rounded-md px-2 py-1 text-[11px] bg-surface focus:outline-none focus:ring-1 focus:ring-primary mr-2"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => deleteCategory(catIdx)}
+                    className="px-2 py-1 text-[11px] rounded-md border border-red-500 text-red-600 hover:bg-red-50"
+                  >
+                    Remove
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {(cat.items || []).map((item, itemIdx) => (
+                    <div
+                      key={itemIdx}
+                      className="flex items-center gap-2 text-[11px]"
+                    >
+                      <input
+                        value={item.name}
+                        onChange={(e) => updateItem(catIdx, itemIdx, 'name', e.target.value)}
+                        placeholder="Item name"
+                        className="flex-1 border border-border rounded-md px-2 py-1 bg-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        value={item.price}
+                        onChange={(e) => updateItem(catIdx, itemIdx, 'price', e.target.value)}
+                        placeholder="Price"
+                        className="w-24 border border-border rounded-md px-2 py-1 bg-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => deleteItem(catIdx, itemIdx)}
+                        className="px-2 py-1 text-[11px] rounded-md border border-red-500 text-red-600 hover:bg-red-50"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   ))}
-                </ul>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => addItem(catIdx)}
+                  className="mt-2 px-3 py-1 rounded-md border border-border text-[11px] text-textSecondary hover:bg-slate-50"
+                >
+                  + Add Item
+                </button>
               </div>
             ))}
           </div>
-        ) : (
-          <p className="text-xs text-textSecondary">No menu items.</p>
         )}
+
+        <div className="flex justify-end mt-3">
+          <button
+            type="button"
+            onClick={handleSaveMenu}
+            disabled={savingMenu}
+            className="px-4 py-1.5 text-xs rounded-md border border-border text-textSecondary hover:bg-slate-50 disabled:opacity-60"
+          >
+            {savingMenu ? 'Saving menu...' : 'Save Menu'}
+          </button>
+        </div>
       </div>
 
       <div className="border border-border rounded-md bg-surface p-4 space-y-2">

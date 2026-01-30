@@ -58,6 +58,7 @@ class RestaurantRegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8)
     menu: dict
+    is_visible: bool = True
 
 
 class LoginRequest(BaseModel):
@@ -72,6 +73,41 @@ class RestaurantSummary(BaseModel):
     business_phone: str
     opening_time: str
     closing_time: str
+    is_visible: bool
+
+
+class AdminRestaurantUpdate(BaseModel):
+    restaurant_name: str
+    business_phone: str
+    state: str
+    city: str
+    address: str
+    pincode: str
+    opening_time: str
+    closing_time: str
+    status: str
+    is_visible: bool
+
+
+class AdminUserSummary(BaseModel):
+    id: int
+    email: EmailStr
+    role: str
+    is_verified: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AdminOrderSummary(BaseModel):
+    id: int
+    customer_id: int
+    restaurant_id: int
+    total_amount: int
+    status: str
+    payment_status: str
+    created_at: datetime
 
     class Config:
         from_attributes = True
@@ -88,6 +124,7 @@ class AdminRestaurantDetail(BaseModel):
     opening_time: str
     closing_time: str
     status: str
+    is_visible: bool
     created_at: datetime
     menu: dict
     rejection_reason: Optional[str] = None
@@ -104,6 +141,7 @@ class PendingRestaurant(BaseModel):
     status: str
     created_at: datetime
     menu: dict
+    is_visible: bool
 
     class Config:
         from_attributes = True
@@ -189,6 +227,9 @@ class RestaurantProfileResponse(BaseModel):
     city: str
     state: str
     pincode: str
+    opening_time: str
+    closing_time: str
+    is_visible: bool
     revenue: int
     orders_count: int
     status: str
@@ -211,6 +252,7 @@ class RestaurantProfileUpdate(BaseModel):
     pincode: str
     opening_time: str
     closing_time: str
+    is_visible: bool
 
 
 class RestaurantMenuUpdate(BaseModel):
@@ -237,6 +279,53 @@ class RestaurantRatingsSummary(BaseModel):
     average_restaurant_rating: float
     average_food_rating: float
     total_feedback_count: int
+
+
+class EmailVerificationRequest(BaseModel):
+    email: EmailStr
+    code: str
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    code: str
+    new_password: str = Field(..., min_length=8)
+
+
+class ChangeEmailRequest(BaseModel):
+    new_email: EmailStr
+
+
+class VerifyChangeEmailRequest(BaseModel):
+    new_email: EmailStr
+    code: str
+
+
+class ChangePhoneRequest(BaseModel):
+    new_phone: str = Field(..., min_length=10, max_length=10)
+
+
+class VerifyChangePhoneRequest(BaseModel):
+    new_phone: str = Field(..., min_length=10, max_length=10)
+    code: str
+
+
+class ChangePasswordStartRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=8)
+
+
+class ChangePasswordVerifyRequest(BaseModel):
+    code: str
+    new_password: str = Field(..., min_length=8)
 
 
 __all__ = [
@@ -266,5 +355,14 @@ __all__ = [
     "FeedbackCreate",
     "FeedbackResponse",
     "RestaurantRatingsSummary",
+    "EmailVerificationRequest",
+    "ResendVerificationRequest",
+    "ForgotPasswordRequest",
+    "ResetPasswordRequest",
+    "ChangeEmailRequest",
+    "VerifyChangeEmailRequest",
+    "ChangePhoneRequest",
+    "VerifyChangePhoneRequest",
+    "ChangePasswordStartRequest",
+    "ChangePasswordVerifyRequest",
 ]
-
