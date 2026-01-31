@@ -250,6 +250,7 @@ def register_restaurant(payload: RestaurantRegisterRequest, db: Session = Depend
                     "field": "menu",
                 },
             )
+
         item_names = set()
         for item in items:
             item_name = (item.get("name") or "").strip()
@@ -284,6 +285,18 @@ def register_restaurant(payload: RestaurantRegisterRequest, db: Session = Depend
                     },
                 )
 
+    # Basic Google Maps location link handling: require non-empty string, store as-is
+    link = (payload.maps_link or "").strip()
+    if not link:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "INVALID_MAPS_LINK",
+                "message": "Google Maps location link is required.",
+                "field": "maps_link",
+            },
+        )
+
     # For restaurant registration we no longer require initial email verification.
     # Email verification is only used later when changing email.
     user = User(
@@ -303,6 +316,7 @@ def register_restaurant(payload: RestaurantRegisterRequest, db: Session = Depend
         # Store city in Title Case regardless of input casing
         city=payload.city.title(),
         address=payload.address,
+        maps_link=link,
         pincode=payload.pincode,
         opening_time=payload.opening_time,
         closing_time=payload.closing_time,

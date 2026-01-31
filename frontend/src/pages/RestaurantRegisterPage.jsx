@@ -14,6 +14,7 @@ const RestaurantRegisterPage = () => {
     state: '',
     city: '',
     address: '',
+    maps_link: '',
     pincode: '',
     opening_time: '',
     closing_time: '',
@@ -95,6 +96,9 @@ const RestaurantRegisterPage = () => {
     if (!details.state) e.state = 'Required'
     if (!details.city) e.city = 'Required'
     if (!details.address) e.address = 'Required'
+    if (!details.maps_link) {
+      e.maps_link = 'Required'
+    }
     {
       const err = validatePincode(details.pincode)
       if (err) e.pincode = err
@@ -260,6 +264,20 @@ const RestaurantRegisterPage = () => {
                 className="w-full px-3 py-2 rounded-md border border-border text-sm focus:ring-1 focus:ring-primary"
               />
               {errors.address && <p className="text-xs text-red-500 mt-1">{errors.address}</p>}
+            </div>
+            <div>
+              <label className="block text-xs text-textSecondary mb-1">Google Maps Location Link</label>
+              <input
+                name="maps_link"
+                value={details.maps_link}
+                onChange={handleDetailChange}
+                placeholder="Paste your Google Maps share link here"
+                className="w-full px-3 py-2 rounded-md border border-border text-sm focus:ring-1 focus:ring-primary"
+              />
+              <p className="text-[11px] text-textSecondary mt-1">
+                Open Google Maps → search your restaurant → Share → Copy link
+              </p>
+              {errors.maps_link && <p className="text-xs text-red-500 mt-1">{errors.maps_link}</p>}
             </div>
             <div className="grid md:grid-cols-3 gap-4">
               <div>

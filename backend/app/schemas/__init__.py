@@ -52,6 +52,7 @@ class RestaurantRegisterRequest(BaseModel):
     state: str
     city: str
     address: str
+    maps_link: str
     pincode: str = Field(..., min_length=6, max_length=6)
     opening_time: str
     closing_time: str
@@ -74,10 +75,12 @@ class RestaurantSummary(BaseModel):
     id: int
     restaurant_name: str
     city: str
+    address: str
     business_phone: str
     opening_time: str
     closing_time: str
     is_visible: bool
+    maps_link: str
 
 
 class AdminRestaurantUpdate(BaseModel):

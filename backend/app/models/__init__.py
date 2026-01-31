@@ -66,6 +66,8 @@ class Restaurant(Base):
     state = Column(String, nullable=False)
     city = Column(String, nullable=False)
     address = Column(String, nullable=False)
+    # Google Maps share link for the restaurant location
+    maps_link = Column(String, nullable=True)
     pincode = Column(String, nullable=False)
     opening_time = Column(String, nullable=False)
     closing_time = Column(String, nullable=False)

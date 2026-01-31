@@ -179,6 +179,27 @@ const CustomerRestaurantPage = () => {
     )
   }
 
+  const computeStatus = () => {
+    try {
+      if (!restaurant.opening_time || !restaurant.closing_time) return 'CLOSED'
+      const now = new Date()
+      const [oh, om] = restaurant.opening_time.split(':').map((x) => parseInt(x, 10))
+      const [ch, cm] = restaurant.closing_time.split(':').map((x) => parseInt(x, 10))
+      const nowMinutes = now.getHours() * 60 + now.getMinutes()
+      const openMinutes = oh * 60 + om
+      const closeMinutes = ch * 60 + cm
+      return nowMinutes >= openMinutes && nowMinutes <= closeMinutes ? 'OPEN' : 'CLOSED'
+    } catch {
+      return 'CLOSED'
+    }
+  }
+
+  const status = computeStatus()
+  const avgRating = ratings?.average_restaurant_rating || 0
+  const baseQuery = `${restaurant.restaurant_name || ''} ${restaurant.city || ''}`.trim()
+  const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(baseQuery)}`
+  const mapsHref = (restaurant.maps_link || '').trim() || fallbackUrl
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 grid gap-8 md:grid-cols-[2fr,1.5fr]">
       <Toast message={error} onClose={() => setError('')} />
@@ -190,14 +211,34 @@ const CustomerRestaurantPage = () => {
             {restaurant.restaurant_name}
           </h2>
           <p className="text-xs text-textSecondary">
-            {restaurant.address}, {restaurant.city}, {restaurant.state} - {restaurant.pincode}
+            {restaurant.city}, {restaurant.state}
+          </p>
+          <p className="text-xs text-textSecondary mt-1 overflow-hidden text-ellipsis">
+            {restaurant.address} - {restaurant.pincode}
           </p>
           <p className="text-xs text-textSecondary mt-1">
-            Phone: {restaurant.business_phone}
+            Rating: {avgRating > 0 ? avgRating.toFixed(1) : '—'}
           </p>
           <p className="text-xs text-textSecondary mt-1">
             Hours: {restaurant.opening_time} – {restaurant.closing_time}
           </p>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <span
+              className={`inline-block px-2 py-0.5 text-[10px] rounded-full font-medium ${
+                status === 'OPEN' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+              }`}
+            >
+              {status === 'OPEN' ? 'Open' : 'Closed'}
+            </span>
+            <a
+              href={mapsHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 text-xs font-medium rounded-md border border-border text-textSecondary hover:bg-slate-50 flex items-center gap-1"
+            >
+              View on Map
+            </a>
+          </div>
         </div>
 
         <div className="bg-surface border border-border rounded-md p-4 space-y-3">

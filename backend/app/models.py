@@ -64,6 +64,7 @@ class Restaurant(Base):
     state = Column(String, nullable=False)
     city = Column(String, nullable=False)
     address = Column(String, nullable=False)
+    maps_link = Column(String, nullable=False)
     pincode = Column(String, nullable=False)
     opening_time = Column(String, nullable=False)
     closing_time = Column(String, nullable=False)
