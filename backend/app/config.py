@@ -1,4 +1,5 @@
 import os
+import json
 from datetime import timedelta
 
 from dotenv import load_dotenv
@@ -12,4 +13,9 @@ JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
 TOKEN_EXPIRY_MINUTES: int = int(os.getenv("TOKEN_EXPIRY_MINUTES", "60"))
 TOKEN_EXPIRY_DELTA = timedelta(minutes=TOKEN_EXPIRY_MINUTES)
 
-CORS_ORIGINS: list[str] = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
+raw_origins = os.getenv("CORS_ORIGINS", "[]")
+
+try:
+    CORS_ORIGINS = json.loads(raw_origins)
+except Exception:
+    CORS_ORIGINS = ["*"]
