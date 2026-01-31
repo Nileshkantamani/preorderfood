@@ -8,6 +8,7 @@ const AdminDashboardPage = () => {
   const [pending, setPending] = useState([])
   const [restaurants, setRestaurants] = useState([])
   const [users, setUsers] = useState([])
+  const [userRoleFilter, setUserRoleFilter] = useState('all') // 'all' | 'customer' | 'restaurant'
   const [loading, setLoading] = useState(true)
   const [savingRestaurantId, setSavingRestaurantId] = useState(null)
   const [error, setError] = useState('')
@@ -290,47 +291,66 @@ const AdminDashboardPage = () => {
           {users.length === 0 ? (
             <p className="text-sm text-textSecondary">No users found.</p>
           ) : (
-            <table className="w-full text-xs border border-border bg-surface">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-3 py-2 text-left border-b border-border">ID</th>
-                  <th className="px-3 py-2 text-left border-b border-border">Email</th>
-                  <th className="px-3 py-2 text-left border-b border-border">Role</th>
-                  <th className="px-3 py-2 text-left border-b border-border">Verified</th>
-                  <th className="px-3 py-2 text-left border-b border-border">Created At</th>
-                  <th className="px-3 py-2 text-left border-b border-border">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => (
-                  <tr key={u.id} className="border-b border-border">
-                    <td className="px-3 py-2 text-xs">{u.id}</td>
-                    <td className="px-3 py-2 text-xs">{u.email}</td>
-                    <td className="px-3 py-2 text-xs">{u.role}</td>
-                    <td className="px-3 py-2 text-xs">{u.is_verified ? 'Yes' : 'No'}</td>
-                    <td className="px-3 py-2 text-xs">
-                      {u.created_at && new Date(u.created_at).toLocaleString()}
-                    </td>
-                    <td className="px-3 py-2 text-xs space-x-2">
-                      <button
-                        type="button"
-                        onClick={() => handleViewUser(u.id)}
-                        className="px-2 py-1 rounded-md border border-border text-textSecondary hover:bg-slate-50"
-                      >
-                        View details
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteUser(u.id)}
-                        className="px-2 py-1 rounded-md border border-red-500 text-red-600 hover:bg-red-50"
-                      >
-                        Delete
-                      </button>
-                    </td>
+            <>
+              <div className="flex items-center justify-end mb-2 gap-2 text-xs">
+                <span className="text-textSecondary">Show:</span>
+                <select
+                  value={userRoleFilter}
+                  onChange={(e) => setUserRoleFilter(e.target.value)}
+                  className="px-2 py-1 border border-border rounded-md bg-surface text-xs"
+                >
+                  <option value="all">All users</option>
+                  <option value="customer">Customers only</option>
+                  <option value="restaurant">Restaurants only</option>
+                </select>
+              </div>
+              <table className="w-full text-xs border border-border bg-surface">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left border-b border-border">ID</th>
+                    <th className="px-3 py-2 text-left border-b border-border">Email</th>
+                    <th className="px-3 py-2 text-left border-b border-border">Role</th>
+                    <th className="px-3 py-2 text-left border-b border-border">Verified</th>
+                    <th className="px-3 py-2 text-left border-b border-border">Created At</th>
+                    <th className="px-3 py-2 text-left border-b border-border">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {users
+                    .filter((u) => {
+                      if (userRoleFilter === 'all') return true
+                      return u.role === userRoleFilter
+                    })
+                    .map((u) => (
+                      <tr key={u.id} className="border-b border-border">
+                        <td className="px-3 py-2 text-xs">{u.id}</td>
+                        <td className="px-3 py-2 text-xs">{u.email}</td>
+                        <td className="px-3 py-2 text-xs">{u.role}</td>
+                        <td className="px-3 py-2 text-xs">{u.is_verified ? 'Yes' : 'No'}</td>
+                        <td className="px-3 py-2 text-xs">
+                          {u.created_at && new Date(u.created_at).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-2 text-xs space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => handleViewUser(u.id)}
+                            className="px-2 py-1 rounded-md border border-border text-textSecondary hover:bg-slate-50"
+                          >
+                            View details
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteUser(u.id)}
+                            className="px-2 py-1 rounded-md border border-red-500 text-red-600 hover:bg-red-50"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </>
           )}
         </>
       )}

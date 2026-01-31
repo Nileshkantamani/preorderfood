@@ -127,7 +127,8 @@ def update_restaurant_profile(
     restaurant.restaurant_name = payload.restaurant_name
     restaurant.business_phone = payload.business_phone
     restaurant.state = payload.state
-    restaurant.city = payload.city
+    # Normalize city to Title Case for consistency
+    restaurant.city = payload.city.title()
     restaurant.address = payload.address
     restaurant.pincode = payload.pincode
     restaurant.opening_time = payload.opening_time

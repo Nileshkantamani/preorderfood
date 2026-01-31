@@ -205,9 +205,18 @@ const CustomerOrdersPage = () => {
                 </ul>
               </div>
               <div className="flex items-center justify-between mt-2 text-xs text-textSecondary">
-                <span className="font-semibold text-textPrimary">
-                  Total: ₹{o.total}
-                </span>
+                <div>
+                  <span className="font-semibold text-textPrimary">
+                    Total: ₹{o.total}
+                  </span>
+                  {o.status === 'PENDING' && o.restaurant_phone && (
+                    <p className="mt-1 text-[11px] text-red-600">
+                      <span className="font-semibold">
+                        Kindly contact our restaurant at {o.restaurant_phone} for confirmation or if you have any queries.
+                      </span>
+                    </p>
+                  )}
+                </div>
                 <div className="flex gap-2">
                   <button
                     onClick={() => navigate(`/customer/order/${o.order_id}`)}

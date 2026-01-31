@@ -139,7 +139,7 @@ const CustomerPaymentPage = () => {
           onClick={handlePayment}
           className="w-full mt-2 px-4 py-2 text-sm font-medium rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-60"
         >
-          {processing ? 'Processing...' : 'Complete Payment'}
+          {processing ? 'Processing...' : 'Pay On Arrival'}
         </button>
       </div>
     </div>

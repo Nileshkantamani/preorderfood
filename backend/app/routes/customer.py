@@ -155,6 +155,7 @@ def get_customer_orders(db: Session = Depends(get_db), customer=Depends(get_curr
             OrderResponse(
                 order_id=o.id,
                 restaurant_name=o.restaurant.restaurant_name,
+                restaurant_phone=o.restaurant.business_phone,
                 items=o.items,
                 total=o.total_amount,
                 status=o.status,

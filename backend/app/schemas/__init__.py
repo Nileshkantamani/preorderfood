@@ -61,6 +61,10 @@ class RestaurantRegisterRequest(BaseModel):
     is_visible: bool = True
 
 
+class EmailAvailabilityRequest(BaseModel):
+    email: EmailStr
+
+
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
@@ -164,6 +168,7 @@ class CreateOrderRequest(BaseModel):
 class OrderResponse(BaseModel):
     order_id: int
     restaurant_name: str
+    restaurant_phone: str
     items: list
     total: int
     status: str

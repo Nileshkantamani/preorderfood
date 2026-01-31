@@ -30,6 +30,7 @@ const CustomerHomePage = () => {
 
   const filtered = useMemo(() => {
     let list = [...restaurants]
+
     if (search) {
       const q = search.toLowerCase()
       list = list.filter(
@@ -39,7 +40,8 @@ const CustomerHomePage = () => {
       )
     }
     if (city !== 'all') {
-      list = list.filter((r) => r.city === city)
+      list = list.filter((r) => (r.city || '').toLowerCase() === city.toLowerCase())
+
     }
     list.sort((a, b) =>
       sort === 'name-asc'
@@ -50,7 +52,19 @@ const CustomerHomePage = () => {
   }, [restaurants, search, city, sort])
 
   const cities = useMemo(
-    () => Array.from(new Set(restaurants.map((r) => r.city))).sort(),
+    () =>
+      Array.from(
+        new Map(
+          restaurants.map((r) => {
+            const raw = (r.city || '').trim()
+            const key = raw.toLowerCase()
+            const title = raw ? raw[0].toUpperCase() + raw.slice(1).toLowerCase() : ''
+            return [key, title]
+          })
+        ).values()
+      )
+        .filter(Boolean)
+        .sort(),
     [restaurants]
   )
 
@@ -84,6 +98,7 @@ const CustomerHomePage = () => {
           {cities.map((c) => (
             <option key={c} value={c}>
               {c}
+
             </option>
           ))}
         </select>
@@ -116,8 +131,9 @@ const CustomerHomePage = () => {
                   {r.restaurant_name}
                 </h3>
                 <p className="text-xs text-textSecondary">
-                  {r.city}
+                  {(r.city || '').charAt(0).toUpperCase() + (r.city || '').slice(1).toLowerCase()}
                 </p>
+
                 <p className="text-xs text-textSecondary mt-1">
                   Phone: {r.business_phone}
                 </p>

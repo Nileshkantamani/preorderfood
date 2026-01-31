@@ -7,7 +7,7 @@ const emptyCategory = () => ({ name: '', items: [{ name: '', price: '' }] })
 
 const RestaurantRegisterPage = () => {
   const navigate = useNavigate()
-  const [step, setStep] = useState(1) // 1 = details, 2 = menu, 3 = OTP verification
+  const [step, setStep] = useState(1) // 1 = details, 2 = menu
   const [details, setDetails] = useState({
     restaurant_name: '',
     phone: '',
@@ -31,31 +31,9 @@ const RestaurantRegisterPage = () => {
     setDetails({ ...details, [e.target.name]: e.target.value })
   }
 
+  // OTP-related handlers remain for future email-change flows but are not used during initial registration.
   const handleVerifyOtp = async (e) => {
     e.preventDefault()
-    setSubmitting(true)
-    setOtpError('')
-    try {
-      await api.post('/auth/verify-email', {
-        email: details.email,
-        code: otp,
-      })
-      navigate('/restaurant/pending', { state: { justRegistered: true } })
-    } catch (err) {
-      const detail = err.response?.data?.detail
-      const code = detail?.code
-      if (code === 'OTP_EXPIRED') {
-        setOtpError('Code expired. Please request a new one.')
-      } else if (code === 'OTP_INCORRECT') {
-        setOtpError('Incorrect code. Please try again.')
-      } else if (code === 'OTP_ATTEMPT_LIMIT') {
-        setOtpError('Too many incorrect attempts. Please request a new code.')
-      } else {
-        setOtpError(detail?.message || 'Could not verify code.')
-      }
-    } finally {
-      setSubmitting(false)
-    }
   }
 
   const handleResendOtp = async () => {
@@ -123,6 +101,20 @@ const RestaurantRegisterPage = () => {
     }
     if (!details.opening_time) e.opening_time = 'Required'
     if (!details.closing_time) e.closing_time = 'Required'
+    // Ensure closing time is after opening time to match backend validation
+    if (!e.opening_time && !e.closing_time) {
+      try {
+        const [oh, om] = details.opening_time.split(':').map((x) => parseInt(x, 10))
+        const [ch, cm] = details.closing_time.split(':').map((x) => parseInt(x, 10))
+        const openMinutes = oh * 60 + om
+        const closeMinutes = ch * 60 + cm
+        if (!Number.isNaN(openMinutes) && !Number.isNaN(closeMinutes) && closeMinutes <= openMinutes) {
+          e.closing_time = 'Closing time must be after opening time'
+        }
+      } catch {
+        e.opening_time = e.opening_time || 'Invalid time format'
+      }
+    }
     {
       const err = validateEmail(details.email)
       if (err) e.email = err
@@ -133,6 +125,27 @@ const RestaurantRegisterPage = () => {
     }
     setErrors(e)
     return Object.keys(e).length === 0
+  }
+
+  const handleNextFromStep1 = async () => {
+    // First run client-side validation for basic fields
+    if (!validateStep1()) return
+
+    setSubmitting(true)
+    try {
+      // Call backend to ensure email is not already registered before moving to menu step
+      await api.post('/auth/check-email', { email: details.email })
+      setStep(2)
+    } catch (err) {
+      const detail = err.response?.data?.detail
+      if (detail?.field === 'email') {
+        setErrors({ email: detail.message })
+      } else if (detail?.field) {
+        setErrors({ [detail.field]: detail.message })
+      }
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const validateStep2 = () => {
@@ -163,18 +176,25 @@ const RestaurantRegisterPage = () => {
         ...details,
         menu,
       })
-      // Move to OTP verification step. Restaurant will still need admin approval
-      // after email verification.
-      if (data?.email) {
-        setStep(3)
-        setOtp('')
-        setOtpError('')
-      } else {
+      // After successful registration, restaurant goes straight to pending screen.
+      if (data?.restaurant_id) {
         navigate('/restaurant/pending', { state: { justRegistered: true } })
       }
     } catch (err) {
       const detail = err.response?.data?.detail
-      if (detail?.field) setErrors({ [detail.field]: detail.message })
+      if (detail?.field) {
+        // If the error is about the menu, show it on step 2.
+        if (detail.field === 'menu') {
+          setErrors({ menu: detail.message })
+        } else {
+          // Error is in details step (phone, pincode, times, etc.)
+          setErrors({ [detail.field]: detail.message })
+          setStep(1)
+        }
+      } else {
+        // Fallback when backend did not provide structured detail
+        setErrors((prev) => ({ ...prev, menu: prev.menu || 'Failed to submit. Please check your details and try again.' }))
+      }
     } finally {
       setSubmitting(false)
     }
@@ -184,11 +204,7 @@ const RestaurantRegisterPage = () => {
     <div className="flex justify-center py-10 px-4">
       <div className="w-full max-w-3xl bg-surface border border-border rounded-xl p-8 shadow-sm">
         <h2 className="text-2xl font-bold text-textPrimary mb-2">Register Your Restaurant</h2>
-        <p className="text-sm text-textSecondary mb-6">
-          {step === 3
-            ? 'Enter the OTP sent to your email to verify your restaurant account.'
-            : 'Provide your details and build your menu.'}
-        </p>
+        <p className="text-sm text-textSecondary mb-6">Provide your details and build your menu.</p>
 
         {step === 1 && (
           <div className="space-y-4">
@@ -315,10 +331,9 @@ const RestaurantRegisterPage = () => {
             <div className="flex justify-end mt-4">
               <button
                 type="button"
-                onClick={() => {
-                  if (validateStep1()) setStep(2)
-                }}
-                className="px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primary/90"
+                onClick={handleNextFromStep1}
+                disabled={submitting}
+                className="px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primary/90 disabled:opacity-60"
               >
                 Next: Add Menu
               </button>
@@ -326,46 +341,7 @@ const RestaurantRegisterPage = () => {
           </div>
         )}
 
-        {step === 3 && (
-          <form onSubmit={handleVerifyOtp} className="space-y-4 max-w-md">
-            <div>
-              <label className="block text-xs text-textSecondary mb-1">Email</label>
-              <input
-                type="email"
-                value={details.email}
-                disabled
-                className="w-full px-3 py-2 rounded-md border border-border text-sm text-textSecondary bg-surface"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-textSecondary mb-1">OTP Code</label>
-              <input
-                type="text"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                className="w-full px-3 py-2 rounded-md border border-border text-sm bg-surface focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-              {otpError && <p className="text-xs text-red-500 mt-1">{otpError}</p>}
-            </div>
-            <div className="flex items-center justify-between">
-              <button
-                type="button"
-                onClick={handleResendOtp}
-                disabled={submitting}
-                className="text-xs text-primary hover:underline disabled:opacity-60"
-              >
-                Resend code
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primary/90 disabled:opacity-60"
-              >
-                {submitting ? 'Verifying...' : 'Verify Email'}
-              </button>
-            </div>
-          </form>
-        )}
+        {/* No OTP step during initial restaurant registration; email verification is used only when changing email. */}
 
         {step === 2 && (
           <div className="space-y-4">
@@ -379,6 +355,9 @@ const RestaurantRegisterPage = () => {
                 + Add Category
               </button>
             </div>
+            {errors.menu && (
+              <p className="text-xs text-red-500 mb-1">{errors.menu}</p>
+            )}
             {categories.map((cat, ci) => (
               <div key={ci} className="border border-border rounded-lg p-4 mb-3 bg-surface">
                 <div className="flex items-center gap-2 mb-3">

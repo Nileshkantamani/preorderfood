@@ -12,6 +12,7 @@ from ..schemas import (
     ChangePasswordVerifyRequest,
     ChangePhoneRequest,
     CustomerRegisterRequest,
+    EmailAvailabilityRequest,
     EmailVerificationRequest,
     ErrorResponse,
     ForgotPasswordRequest,
@@ -121,6 +122,27 @@ def register_customer(payload: CustomerRegisterRequest, db: Session = Depends(ge
         "message": "Registration successful. Please verify your email using the OTP sent.",
         "email": user.email,
     }
+
+
+@router.post("/check-email")
+def check_email_availability(payload: EmailAvailabilityRequest, db: Session = Depends(get_db)):
+    """Check if a user with the given email already exists.
+
+    Returns 200 with {"available": True} when the email is free,
+    otherwise 400 with a structured validation error on the email field.
+    """
+    existing = db.query(User).filter(User.email == payload.email).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "EMAIL_EXISTS",
+                "message": "Email already registered",
+                "field": "email",
+            },
+        )
+
+    return {"available": True}
 
 
 @router.post("/register/restaurant", responses={400: {"model": ErrorResponse}})
@@ -262,11 +284,13 @@ def register_restaurant(payload: RestaurantRegisterRequest, db: Session = Depend
                     },
                 )
 
+    # For restaurant registration we no longer require initial email verification.
+    # Email verification is only used later when changing email.
     user = User(
         email=payload.email,
         password_hash=hash_password(payload.password),
         role=UserRole.RESTAURANT,
-        is_verified=False,
+        is_verified=True,
     )
     db.add(user)
     db.flush()
@@ -276,7 +300,8 @@ def register_restaurant(payload: RestaurantRegisterRequest, db: Session = Depend
         restaurant_name=payload.restaurant_name,
         business_phone=payload.phone,
         state=payload.state,
-        city=payload.city,
+        # Store city in Title Case regardless of input casing
+        city=payload.city.title(),
         address=payload.address,
         pincode=payload.pincode,
         opening_time=payload.opening_time,
@@ -288,12 +313,8 @@ def register_restaurant(payload: RestaurantRegisterRequest, db: Session = Depend
     db.commit()
     db.refresh(restaurant)
 
-    # Send verification OTP to restaurant owner email.
-    _create_or_replace_otp(db, user, purpose="verify_email")
-    db.commit()
-
     return {
-        "message": "Restaurant registration submitted. Please verify your email using the OTP sent.",
+        "message": "Restaurant registration submitted and is pending admin approval.",
         "restaurant_id": restaurant.id,
         "status": restaurant.status,
         "email": user.email,

@@ -29,3 +29,7 @@ app.include_router(restaurant_routes.router)
 @app.get("/")
 async def root():
     return {"message": "PreOrderFood API is running"}
+
+@app.get("/health", tags=["health"])
+async def health() -> dict:
+    return {"status": "ok"}
