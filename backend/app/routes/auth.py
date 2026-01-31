@@ -48,6 +48,7 @@ def _create_or_replace_otp(db: Session, user: User, purpose: str, override_email
     stored against the user and purpose only, so DB schema remains unchanged.
     """
     # Invalidate previous OTPs for this user/purpose
+    print(f"[OTP] Creating OTP for user_id={user.id}, purpose={purpose}")
     db.query(EmailOTP).filter(
         EmailOTP.user_id == user.id,
         EmailOTP.purpose == purpose,
@@ -71,7 +72,14 @@ def _create_or_replace_otp(db: Session, user: User, purpose: str, override_email
 
     # Send without exposing the code via API.
     to_email = override_email or user.email
-    send_otp_email(to_email, code, purpose)
+    try:
+        print(f"[OTP] Sending OTP email to {to_email} for purpose={purpose}")
+        send_otp_email(to_email, code, purpose)
+        print(f"[OTP] Successfully sent OTP email to {to_email} for purpose={purpose}")
+    except Exception as exc:
+        # Let caller handle rollback; just log and re-raise.
+        print(f"[OTP] Failed to send OTP email to {to_email} for purpose={purpose}: {exc!r}")
+        raise
 
 
 def _get_active_otp(db: Session, user: User, purpose: str) -> EmailOTP | None:
@@ -100,28 +108,51 @@ def register_customer(payload: CustomerRegisterRequest, db: Session = Depends(ge
             },
         )
 
-    user = User(
-        email=payload.email,
-        password_hash=hash_password(payload.password),
-        role=UserRole.CUSTOMER,
-        is_verified=False,
-    )
-    db.add(user)
-    db.flush()
+    try:
+        user = User(
+            email=payload.email,
+            password_hash=hash_password(payload.password),
+            role=UserRole.CUSTOMER,
+            is_verified=False,
+        )
+        db.add(user)
+        db.flush()
+        print(f"[REGISTER] Created customer user id={user.id}, email={user.email}")
 
-    customer = Customer(id=user.id, name=payload.name, phone=payload.phone)
-    db.add(customer)
-    db.commit()
-    db.refresh(user)
+        customer = Customer(id=user.id, name=payload.name, phone=payload.phone)
+        db.add(customer)
+        print(f"[REGISTER] Created customer profile for user id={user.id}")
 
-    # Create and send verification OTP.
-    _create_or_replace_otp(db, user, purpose="verify_email")
-    db.commit()
+        # Create and send verification OTP (may raise on email failure).
+        _create_or_replace_otp(db, user, purpose="verify_email")
+        print(f"[REGISTER] OTP created and email sent for user id={user.id}")
 
-    return {
-        "message": "Registration successful. Please verify your email using the OTP sent.",
-        "email": user.email,
-    }
+        db.commit()
+        db.refresh(user)
+        print(f"[REGISTER] Transaction committed for user id={user.id}")
+
+        return {
+            "message": "Registration successful. Please verify your email using the OTP sent.",
+            "email": user.email,
+        }
+    except HTTPException:
+        # Validation errors before this block are raised earlier; if any HTTPException
+        # is raised inside, propagate as-is but ensure DB is rolled back.
+        db.rollback()
+        print(f"[REGISTER] Rolled back customer registration for email={payload.email} due to HTTPException")
+        raise
+    except Exception as exc:
+        # Roll back any partially created user/customer/OTP when email or DB fails.
+        db.rollback()
+        print(f"[REGISTER] Rolled back customer registration for email={payload.email} due to error: {exc!r}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "REGISTRATION_FAILED",
+                "message": "Failed to complete registration. Please try again.",
+                "field": "email",
+            },
+        )
 
 
 @router.post("/check-email")
